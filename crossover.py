@@ -1,120 +1,133 @@
-# ==========================
-# AUXILIARY FUNCTIONS
-# ==========================
-
-def count_residues(seq):
-    """Conta o número de caracteres diferentes de '-'."""
-    return sum(1 for c in seq if c != '-')
+def get_residues_only(seq):
+    return seq.replace('-', '')
 
 
-def index_at_residue(seq, n):
-    """
-    Retorna o índice (0-based) da primeira posição
-    à direita do n-ésimo resíduo (ignorando gaps).
-    """
-    count = 0
-    for i, c in enumerate(seq):
-        if c != '-':
-            count += 1
-        if count == n:
-            return i + 1  # posição depois do n-ésimo resíduo
-    return len(seq)
+def extract_offsets_and_residues(align):
+
+    offsets = []
+    residues_list = []
+    
+    for seq in align:
+        #* Contar gaps iniciais
+        offset = 0
+        for c in seq:
+            if c == '-':
+                offset += 1
+            else:
+                break
+        
+        offsets.append(offset)
+        residues_list.append(get_residues_only(seq))
+    
+    return offsets, residues_list
 
 
-def split_at(align, indexes):
-    """
-    Divide um MSA (lista de sequências) em duas partes,
-    cortando cada linha no índice indicado em 'indexes'.
-    Retorna: (left_align, right_align, residues_left)
-    """
-    left = []
-    right = []
-    residues = []
-    for i, seq in enumerate(align):
-        idx = indexes[i]
-        left.append(seq[:idx])
-        right.append(seq[idx:])
-        residues.append(count_residues(seq[:idx]))
-    return left, right, residues
+def reconstruct_from_offsets(offsets, residues_list):
+
+    #* Criar sequências com offsets
+    seqs = []
+    for offset, residues in zip(offsets, residues_list):
+        seq = '-' * offset + residues
+        seqs.append(seq)
+    
+    #* Normalizar comprimentos
+    max_len = max(len(s) for s in seqs)
+    seqs = [s + '-' * (max_len - len(s)) for s in seqs]
+    
+    return remove_gap_only_columns(seqs)
 
 
-def residues_to_indexes(align, residues):
-    """
-    Para cada sequência no MSA, encontra o índice onde
-    há o mesmo número de resíduos (ignorando gaps)
-    que na lista 'residues'.
-    """
-    return [index_at_residue(seq, r) for seq, r in zip(align, residues)]
+def remove_gap_only_columns(align):
+    if not align or len(align[0]) == 0:
+        return align
+    
+    cols_to_keep = []
+    for col_idx in range(len(align[0])):
+        #* Manter coluna se pelo menos uma sequência tem resíduo
+        if any(seq[col_idx] != '-' for seq in align):
+            cols_to_keep.append(col_idx)
+    
+    #* Voltamos a contruir  alinhamento
+    result = []
+    for seq in align:
+        new_seq = ''.join(seq[i] for i in cols_to_keep)
+        result.append(new_seq)
+    
+    return result
 
 
-def pad_alignment(part, side):
-    """
-    Adiciona gaps ('-') para tornar todas as linhas do MSA do mesmo comprimento.
-    side='r' → gaps à direita
-    side='l' → gaps à esquerda
-    """
-    max_len = max(len(seq) for seq in part)
-    padded = []
-    for seq in part:
-        diff = max_len - len(seq)
-        if side == 'r':
-            padded.append(seq + '-' * diff)
-        elif side == 'l':
-            padded.append('-' * diff + seq)
-        else:
-            raise ValueError("side deve ser 'r' (right) ou 'l' (left)")
-    return padded
+def generate_offspring(align1, align2, crossover_point=None):
 
-
-def merge(left, right):
-    """Concatena duas partes (listas de strings) coluna a coluna."""
-    return [l + r for l, r in zip(left, right)]
-
-
-def is_all_gaps(align, col_idx):
-    """Verifica se a coluna col_idx é composta apenas por gaps ('-')."""
-    return all(seq[col_idx] == '-' for seq in align)
-
-
-def clean_alignment(align):
-    """
-    Remove colunas compostas apenas por gaps.
-    Retorna um novo MSA (lista de strings).
-    """
-    if not align:
-        return []
-    cols_to_keep = [i for i in range(len(align[0])) if not is_all_gaps(align, i)]
-    cleaned = [''.join(seq[i] for i in cols_to_keep) for seq in align]
-    return cleaned
-
-# ==========================
-# MAIN CROSSOVER FUNCTION
-# ==========================
-
-def generate_offspring(align1, align2, split_residues):
-    """
-    Executa o crossover entre dois MSAs alinhados.
-    split_residues: número de resíduos (não colunas) após o qual cortar.
-    """
-    nseqs = len(align1)
-
-    # 1. Cortar o primeiro MSA
-    l1, r1, residues_left = split_at(align1, [split_residues] * nseqs)
-
-    # 2. Determinar índices equivalentes no segundo MSA
-    indexes2 = residues_to_indexes(align2, residues_left)
-
-    # 3. Cortar o segundo MSA
-    l2, r2, _ = split_at(align2, indexes2)
-
-    # 4. Fazer padding das partes
-    l1pad = pad_alignment(l1, "r")
-    r1pad = pad_alignment(r1, "l")
-    l2pad = pad_alignment(l2, "r")
-    r2pad = pad_alignment(r2, "l")
-
-    # 5. Fazer crossover
-    offspring1 = clean_alignment(merge(l1pad, r2pad))
-    offspring2 = clean_alignment(merge(l2pad, r1pad))
-
+    import random
+    
+    offsets1, residues1 = extract_offsets_and_residues(align1)
+    offsets2, residues2 = extract_offsets_and_residues(align2)
+    
+    # Verificar se resíduos são iguais
+    if residues1 != residues2:
+        # Se não são, não podemos fazer crossover
+        return align1, align2
+    
+    #* Se não recebemos o ponto de crossover fazer random (só por segurança pq na main passamos sempre random tbm)
+    if crossover_point is None:
+        crossover_point = random.randint(1, len(offsets1) - 1)
+    
+    #* Criar novos offsets trocando no ponto de cross
+    new_offsets1 = offsets1[:crossover_point] + offsets2[crossover_point:]
+    new_offsets2 = offsets2[:crossover_point] + offsets1[crossover_point:]
+    
+    #* Realinhar
+    offspring1 = reconstruct_from_offsets(new_offsets1, residues1)
+    offspring2 = reconstruct_from_offsets(new_offsets2, residues2)
+    
     return offspring1, offspring2
+
+
+if __name__ == "__main__":
+    print("="*70)
+    print("TESTE DO CROSSOVER CORRIGIDO PARA MSA")
+    print("="*70)
+    
+    # Teste 1: One-point crossover
+    print("\n### TESTE 1: One-Point Crossover ###\n")
+    
+    pai1 = ['A--TGC', 'ATG--C']
+    pai2 = ['ATGC--', 'A-TG-C']
+    
+    print("Pai 1:")
+    for seq in pai1:
+        print(f"  {seq}  (resíduos: {get_residues_only(seq)})")
+    
+    print("\nPai 2:")
+    for seq in pai2:
+        print(f"  {seq}  (resíduos: {get_residues_only(seq)})")
+    
+    filho1, filho2 = generate_offspring(pai1, pai2, 1)
+    
+    print("\nFilho 1 (corte na sequência 1 - troca offsets):")
+    for seq in filho1:
+        print(f"  {seq}  (resíduos: {get_residues_only(seq)})")
+    
+    print("\nFilho 2:")
+    for seq in filho2:
+        print(f"  {seq}  (resíduos: {get_residues_only(seq)})")
+    
+    # Verificação
+    print("\n" + "-"*70)
+    residues_ok = True
+    for i in range(len(pai1)):
+        r_pai1 = get_residues_only(pai1[i])
+        r_filho1 = get_residues_only(filho1[i])
+        r_filho2 = get_residues_only(filho2[i])
+        
+        if r_pai1 != r_filho1 or r_pai1 != r_filho2:
+            residues_ok = False
+            print(f"✗ ERRO Seq {i}: Resíduos alterados!")
+        else:
+            print(f"✓ Seq {i}: Resíduos preservados ({r_pai1})")
+    
+    print("-"*70)
+    
+    print("\n" + "="*70)
+    print("RESULTADO: Crossover CORRETO - Resíduos preservados!" if residues_ok else "ERRO!")
+    print("="*70)

@@ -5,7 +5,7 @@ from multiplealign.substmatrix import SubstMatrix
 from multiplealign.pairwisealignment import PairwiseAlignment
 import random
 import numpy as np
-import crossover_corrected as crossover
+import crossover as cross
 
 PROTEIN_TYPE = "PROTEIN"
 pa = None
@@ -125,7 +125,7 @@ def select_parents(scored_population, num_parents):
     scores = [score for _, score in scored_population]
     min_score = min(scores)
     
-    # Se há scores negativos, adiciona offset para torná-los positivos
+    # Se há scores negativos, adiciona offset para torná los positivos
     if min_score < 0:
         adjusted_scores = [score - min_score + 1 for score in scores]
     else:
@@ -150,7 +150,6 @@ def create_next_generation(current_population, population_size, elite_size=0.1, 
     
     print(f"Keeping {num_elite} in next generation")
     
-    # 2. REPRODUÇÃO: Gerar filhos até completar população
     num_mutations = 0
     num_crossovers = 0
     
@@ -173,7 +172,7 @@ def create_next_generation(current_population, population_size, elite_size=0.1, 
             else:
                 split_point = 1
             
-            offspring1, offspring2 = crossover.generate_offspring(MyAlign(father, PROTEIN_TYPE), MyAlign(mother, PROTEIN_TYPE), split_point)
+            offspring1, offspring2 = cross.generate_offspring(father, mother, split_point)
             
             # Escolher o melhor dos dois
             score1 = score_MSA(offspring1)
@@ -245,8 +244,8 @@ def mutate_split_gap_block(alignment):
         '-' * right_length +                 #* inserimos o numero de gaps
         seq[insert_right_pos:]               #* repomos tudo o que vem depois do gap até ao fim
     )
-    print(f"\nSequence before mutation: ${seq}")
-    print(f"New seq: ${new_seq}\n")
+    #print(f"\nSequence before mutation: ${seq}")
+    #print(f"New seq: ${new_seq}\n")
     
     mutated[seq_idx] = ''.join(new_seq)
     
@@ -262,9 +261,7 @@ def run_genetic_algorithm(sequences, population_size=10, max_generations=100,
     print("ALGORITMO GENÉTICO - MULTIPLE SEQUENCE ALIGNMENT")
     print(f"População: {population_size} | Max Gerações: {max_generations} | Limite sem melhoria: {no_improvement_limit}")
     print()
-    
-    # 1. INICIALIZAR POPULAÇÃO (Geração 0)
-    print("INIT populacao...")
+
     population = initialize_population(sequences, population_size, max_offset)
     
     # Avaliar e ordenar
