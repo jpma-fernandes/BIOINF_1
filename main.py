@@ -1,5 +1,6 @@
 from multiplealign.myseq import MySeq
 #from multiplealign.multiplealign import MultipleAlignment
+from multiplealign.myalign import MyAlign
 from multiplealign.substmatrix import SubstMatrix
 from multiplealign.pairwisealignment import PairwiseAlignment
 import random
@@ -124,7 +125,7 @@ def select_parents(scored_population, num_parents):
     scores = [score for _, score in scored_population]
     min_score = min(scores)
     
-    # Se todos os scores são negativos, adiciona offset para torná-los positivos
+    # Se há scores negativos, adiciona offset para torná-los positivos
     if min_score < 0:
         adjusted_scores = [score - min_score + 1 for score in scores]
     else:
@@ -172,7 +173,7 @@ def create_next_generation(current_population, population_size, elite_size=0.1, 
             else:
                 split_point = 1
             
-            offspring1, offspring2 = crossover.generate_offspring(father, mother, split_point)
+            offspring1, offspring2 = crossover.generate_offspring(MyAlign(father, PROTEIN_TYPE), MyAlign(mother, PROTEIN_TYPE), split_point)
             
             # Escolher o melhor dos dois
             score1 = score_MSA(offspring1)
@@ -327,8 +328,7 @@ if __name__ == "__main__":
     sequences = read_fasta('./cytochromes.fa')
     submat = SubstMatrix()
     submat.read_submat_file("blosum62.mat") 
-    #? Este gap penalty não está muito baixo? assim missmatch por causa dos gaps não são quase penalizados
-    pa = PairwiseAlignment(submat, -1)  # Gap penalty = -1 (menos penalidade = scores mais altos)
+    pa = PairwiseAlignment(submat, -8) 
     
     print("Sequências originais:")
     for i, seq in enumerate(sequences):
@@ -338,9 +338,9 @@ if __name__ == "__main__":
     #* Executar Algoritmo Genético
     best_alignment, best_score, history = run_genetic_algorithm(
         sequences,
-        population_size=50,       # População maior = mais diversidade
-        max_generations=100,      # Mais gerações
-        no_improvement_limit=30,  # Esperar mais antes de parar
+        population_size=50, 
+        max_generations=100,  
+        no_improvement_limit=30, 
         max_offset=10
     )
     
