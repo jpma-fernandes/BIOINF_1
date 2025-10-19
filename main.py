@@ -107,16 +107,12 @@ def remove_gap_only_columns(aligned_seqs):
 
 
 def score_MSA(msa):
-    """
-    Calcula Sum-of-Pairs score do MSA.
-    CORRIGIDO: Usa o número correto de sequências e acessa BLOSUM62 corretamente.
-    """
     score = 0
-    n = len(msa)  # ✅ CORRIGIDO: sem o -1!
+    n = len(msa)
     
     #* Calcular score de todos os pares
     for i in range(n):
-        for j in range(i + 1, n):  # j vai de i+1 até n-1 (correto agora!)
+        for j in range(i + 1, n):
             pa.seq1 = msa[i]
             pa.seq2 = msa[j]
             score += pa.score_align()
@@ -134,16 +130,6 @@ def print_indv(indv):
 
 
 def select_parents(scored_population, num_parents):
-    """
-    Seleciona pais usando Roulette Wheel Selection (seleção proporcional ao fitness).
-    
-    Args:
-        scored_population: lista de tuplas (individuo, score)
-        num_parents: quantos pais selecionar
-    
-    Returns:
-        lista de individuos selecionados
-    """
     # Converter scores negativos para positivos (adicionar offset se necessário)
     scores = [score for _, score in scored_population]
     min_score = min(scores)
@@ -167,30 +153,19 @@ def select_parents(scored_population, num_parents):
 
 
 def create_next_generation(current_population, population_size, elite_size=0.1, mutation_prob=0.5):
-    """
-    Cria a próxima geração através de elitismo + crossover + mutação.
-    
-    Args:
-        current_population: lista de tuplas (individuo, score)
-        population_size: tamanho da população
-        elite_size: percentagem de elite a manter (0.2 = 20%)
-        mutation_prob: probabilidade de mutação vs crossover (0.3 = 30%)
-    
-    Returns:
-        nova população (lista de tuplas (individuo, score))
-    """
-    # 1. ELITISMO: Manter os melhores
+    #* ELITISMO: Manter os melhores
     num_elite = max(1, int(population_size * elite_size))
     next_gen = current_population[:num_elite]  # Já está ordenado
     
-    print(f"  Mantendo {num_elite} elite(s)")
+    print(f"Keeping {num_elite} in next generation")
     
     # 2. REPRODUÇÃO: Gerar filhos até completar população
     num_mutations = 0
     num_crossovers = 0
     
     while len(next_gen) < population_size:
-        # Escolher entre mutação e crossover
+        #? Nao é para fazer crossover e depois mutação?
+        # Escolhe entre mutação e crossover
         if random.random() < mutation_prob:
             # MUTAÇÃO
             parent = select_parents(current_population, 1)[0]
@@ -219,26 +194,20 @@ def create_next_generation(current_population, population_size, elite_size=0.1, 
         offspring_score = score_MSA(offspring)
         next_gen.append((offspring, offspring_score))
     
-    print(f"  Operações: {num_crossovers} crossovers, {num_mutations} mutações")
+    print(f"Operacoes: {num_crossovers} crossovers, {num_mutations} mutacoes")
     
     return next_gen
 
 
 def count_residues(seq):
-    """Conta resíduos (não-gaps) numa sequência"""
     return sum(1 for c in seq if c != '-')
 
 
 def mutate_split_gap_block(alignment):
-    """
-    MUTAÇÃO OBRIGATÓRIA: Split a randomly selected gap block.
-    
-    Escolhe uma sequência aleatória, encontra um bloco de gaps,
-    e divide-o inserindo uma coluna nova.
-    """
     import copy
     mutated = copy.deepcopy(alignment)
     
+    #! Nossa operacao é  Split a randomly selected gap block
     # Escolher tipo de mutação aleatoriamente
     mutation_type = random.choice(['split_gap', 'remove_gap', 'insert_gap'])
     
@@ -300,65 +269,15 @@ def mutate_split_gap_block(alignment):
     return mutated
 
 
-def apply_mutation_or_crossover(current_population, mutation_prob=0.3):
-    """
-    Escolhe aleatoriamente entre mutação e crossover.
-    
-    Args:
-        current_population: população atual (lista de tuplas)
-        mutation_prob: probabilidade de mutação (0.3 = 30%)
-    
-    Returns:
-        novo indivíduo (offspring)
-    """
-    if random.random() < mutation_prob:
-        # MUTAÇÃO
-        parent = select_parents(current_population, 1)[0]
-        offspring = mutate_split_gap_block(parent)
-        return offspring
-    else:
-        # CROSSOVER
-        parents = select_parents(current_population, 2)
-        father, mother = parents[0], parents[1]
-        
-        max_residues = min(count_residues(father[0]), count_residues(mother[0]))
-        if max_residues > 1:
-            split_point = random.randint(1, max_residues - 1)
-        else:
-            split_point = 1
-        
-        offspring1, offspring2 = crossover.generate_offspring(father, mother, split_point)
-        
-        # Retornar o melhor dos dois
-        score1 = score_MSA(offspring1)
-        score2 = score_MSA(offspring2)
-        
-        return offspring1 if score1 > score2 else offspring2
-
-
 def run_genetic_algorithm(sequences, population_size=10, max_generations=100, 
                          no_improvement_limit=20, max_offset=10):
-    """
-    Executa o Algoritmo Genético completo.
-    
-    Args:
-        sequences: sequências originais (sem gaps)
-        population_size: tamanho da população
-        max_generations: número máximo de gerações
-        no_improvement_limit: parar se não melhorar por N gerações
-        max_offset: máximo de gaps iniciais
-    
-    Returns:
-        melhor alinhamento encontrado, seu score, histórico
-    """
-    print("=" * 80)
+
     print("ALGORITMO GENÉTICO - MULTIPLE SEQUENCE ALIGNMENT")
-    print("=" * 80)
     print(f"População: {population_size} | Max Gerações: {max_generations} | Limite sem melhoria: {no_improvement_limit}")
     print()
     
     # 1. INICIALIZAR POPULAÇÃO (Geração 0)
-    print("Inicializando população...")
+    print("INIT populacao...")
     population = initialize_population(sequences, population_size, max_offset)
     
     # Avaliar e ordenar
@@ -372,47 +291,43 @@ def run_genetic_algorithm(sequences, population_size=10, max_generations=100,
     best_score_history = [best_ever[1]]
     generations_without_improvement = 0
     
-    print(f"Geração 0: Melhor score = {best_ever[1]:.2f}")
+    print(f"Geracao 0: Melhor score = {best_ever[1]}")
     print()
     
-    # 2. LOOP DE GERAÇÕES
+    #* Loop gerações
     for generation in range(1, max_generations + 1):
         print(f"--- Geração {generation} ---")
         
-        # Criar próxima geração
         scored_population = create_next_generation(scored_population, population_size)
         
-        # Ordenar por fitness
+        #* Sort por score
         scored_population.sort(key=lambda x: x[1], reverse=True)
         
-        # Melhor da geração
         best_current = scored_population[0]
         best_score_history.append(best_current[1])
         
-        # Verificar se houve melhoria
+        #* Verificar se houve melhoria overall
         worst_current = scored_population[-1]
         avg_score = sum(s for _, s in scored_population) / len(scored_population)
         
         if best_current[1] > best_ever[1]:
             improvement = best_current[1] - best_ever[1]
-            print(f"  ✓ NOVO MELHOR! Score: {best_current[1]:.2f} (+{improvement:.2f}) | Média: {avg_score:.2f}")
+            print(f"Novo best Score: {best_current[1]} (+{improvement}) | Média: {avg_score:.2f}")
             best_ever = best_current
             generations_without_improvement = 0
         else:
             generations_without_improvement += 1
-            print(f"  Melhor: {best_current[1]:.2f} | Pior: {worst_current[1]:.2f} | Média: {avg_score:.2f} | Sem melhoria: {generations_without_improvement}")
+            print(f"Melhor: {best_current[1]} | Pior: {worst_current[1]} | Média: {avg_score:.2f} | Sem melhoria: {generations_without_improvement}")
         
-        # Critério de paragem
+        #* Stop criteria
         if generations_without_improvement >= no_improvement_limit:
             print()
-            print(f">>> PARAGEM: Sem melhoria por {no_improvement_limit} gerações consecutivas")
+            print(f"Stopping Sem melhoria por {no_improvement_limit} gerações consecutivas")
             break
     
     print()
-    print("=" * 80)
     print("RESULTADO FINAL")
-    print("=" * 80)
-    print(f"Melhor score encontrado: {best_ever[1]:.2f}")
+    print(f"Melhor score encontrado: {best_ever[1]}")
     print(f"Gerações executadas: {generation}")
     print()
     print("Melhor alinhamento:")
@@ -422,19 +337,19 @@ def run_genetic_algorithm(sequences, population_size=10, max_generations=100,
 
 
 if __name__ == "__main__":
-    # 1. Carregar dados
+
     sequences = read_fasta('./cytochromes.fa')
     submat = SubstMatrix()
-    submat.read_submat_file("blosum62.mat")
+    submat.read_submat_file("blosum62.mat") 
+    #? Este gap penalty não está muito baixo? assim missmatch por causa dos gaps não são quase penalizados
     pa = PairwiseAlignment(submat, -1)  # Gap penalty = -1 (menos penalidade = scores mais altos)
     
     print("Sequências originais:")
-    for i, seq in enumerate(sequences[:3]):  # Mostrar só as 3 primeiras
-        print(f"Seq {i}: {seq[:60]}..." if len(seq) > 60 else f"Seq {i}: {seq}")
-    print(f"... (total de {len(sequences)} sequências)")
+    for i, seq in enumerate(sequences):
+        print(f"Seq {i}: {seq}")
     print()
     
-    # 2. Executar Algoritmo Genético
+    #* Executar Algoritmo Genético
     best_alignment, best_score, history = run_genetic_algorithm(
         sequences,
         population_size=50,       # População maior = mais diversidade
