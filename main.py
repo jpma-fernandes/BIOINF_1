@@ -46,34 +46,25 @@ def initialize_population(sequences, population_size=100, max_offset=50):
     return population
 
 
-def create_random_alignment(sequences, max_offset=50, insert_internal_gaps=True):
+def create_random_alignment(sequences, max_offset=50):
     aligned_seqs = []
     
+    #* colocar offsets de comprimento random no inicio das sequencias
     for seq in sequences:
-        # 1. Offset inicial (gaps no início)
         offset = random.randint(0, max_offset)
-        aligned_seq = '-' * offset + seq
-        
-        # 2. NOVO: Adicionar gaps aleatórios NO MEIO da sequência (mais diversidade!)
-        if insert_internal_gaps and random.random() > 0.3:  # 70% de chance
-            num_internal_gaps = random.randint(1, max_offset // 5)  # Poucos gaps internos
-            for _ in range(num_internal_gaps):
-                # Inserir gap numa posição aleatória (não no início nem fim)
-                if len(aligned_seq) > 2:
-                    pos = random.randint(1, len(aligned_seq) - 1)
-                    aligned_seq = aligned_seq[:pos] + '-' + aligned_seq[pos:]
-        
+        gaps = '-' * offset
+        aligned_seq = gaps + seq
         aligned_seqs.append(aligned_seq)
     
-    # Comprimento máximo
+    #* comprimento máximo
     max_length = max(len(seq) for seq in aligned_seqs)
     
-    # Preenche o final com gaps para todas terem o mesmo comprimento
+    #* Preenche o final com gaps para todas terem o mesmo comprimento
     for i in range(len(aligned_seqs)):
         gaps_needed = max_length - len(aligned_seqs[i])
         aligned_seqs[i] = aligned_seqs[i] + ('-' * gaps_needed)
     
-    # Remove colunas que só têm gaps
+    #* Remove colunas que so tem gaps
     aligned_seqs = remove_gap_only_columns(aligned_seqs)
     
     return aligned_seqs
@@ -120,13 +111,12 @@ def score_MSA(msa):
     return score
 
 def print_indv(indv):
-    """Imprime um individuo (alinhamento)"""
     if isinstance(indv, list):
         for seq in indv:
-            print(seq[:80] + "..." if len(seq) > 80 else seq)
+            print(seq)
     else:
         for seq in indv.seqs:
-            print(seq[:80] + "..." if len(seq) > 80 else seq)
+            print(seq)
 
 
 def select_parents(scored_population, num_parents):
@@ -164,7 +154,7 @@ def create_next_generation(current_population, population_size, elite_size=0.1, 
     num_crossovers = 0
     
     while len(next_gen) < population_size:
-        #? Nao é para fazer crossover e depois mutação?
+        #? Nao é para fazer crossover e depois mutação? paper diz que não
         # Escolhe entre mutação e crossover
         if random.random() < mutation_prob:
             # MUTAÇÃO
@@ -209,59 +199,55 @@ def mutate_split_gap_block(alignment):
     
     #! Nossa operacao é  Split a randomly selected gap block
     # Escolher tipo de mutação aleatoriamente
-    mutation_type = random.choice(['split_gap', 'remove_gap', 'insert_gap'])
     
-    if mutation_type == 'split_gap':
-        # MUTAÇÃO ORIGINAL: Split gap block
-        seq_idx = random.randint(0, len(mutated) - 1)
-        seq = mutated[seq_idx]
-        
-        gap_blocks = []
-        i = 0
-        while i < len(seq):
-            if seq[i] == '-':
-                start = i
-                while i < len(seq) and seq[i] == '-':
-                    i += 1
-                end = i
-                if end - start >= 2:
-                    gap_blocks.append((start, end))
-            else:
+    seq_idx = random.randint(0, len(mutated) - 1)
+    seq = mutated[seq_idx]
+    
+    #* Encontrar blocos com pelo menos 2 gaps seguidos
+    gap_blocks = []
+    i = 0
+    while i < len(seq):
+        if seq[i] == '-':
+            start = i
+            while i < len(seq) and seq[i] == '-':
                 i += 1
-        
-        if gap_blocks:
-            block_start, block_end = random.choice(gap_blocks)
-            split_pos = random.randint(block_start + 1, block_end - 1)
-            mutated = [s[:split_pos] + '-' + s[split_pos:] for s in mutated]
+            end = i
+            if end - start >= 2:
+                gap_blocks.append((start, end))
         else:
-            # Inserir gap aleatório
-            pos = random.randint(0, len(seq))
-            mutated = [s[:pos] + '-' + s[pos:] for s in mutated]
+            i += 1
     
-    elif mutation_type == 'remove_gap':
-        # NOVA MUTAÇÃO: Remover gap aleatório de uma sequência
-        seq_idx = random.randint(0, len(mutated) - 1)
-        seq = mutated[seq_idx]
-        
-        gap_positions = [i for i, c in enumerate(seq) if c == '-']
-        if gap_positions:
-            remove_pos = random.choice(gap_positions)
-            # Remover gap dessa coluna em todas as sequências
-            mutated = [s[:remove_pos] + s[remove_pos+1:] if i == seq_idx else s 
-                      for i, s in enumerate(mutated)]
-            # Ajustar comprimentos
-            max_len = max(len(s) for s in mutated)
-            mutated = [s + '-' * (max_len - len(s)) for s in mutated]
+    if not gap_blocks:
+        return mutated
     
-    elif mutation_type == 'insert_gap':
-        # NOVA MUTAÇÃO: Inserir gap em posição aleatória
-        seq_idx = random.randint(0, len(mutated) - 1)
-        pos = random.randint(0, len(mutated[0]))
-        mutated[seq_idx] = mutated[seq_idx][:pos] + '-' + mutated[seq_idx][pos:]
-        # Ajustar outras sequências
-        for i in range(len(mutated)):
-            if i != seq_idx and len(mutated[i]) < len(mutated[seq_idx]):
-                mutated[i] += '-'
+    #* escolher bloco que vamos partir
+    block_start, block_end = random.choice(gap_blocks)
+
+    #* dividir o tamanho do bloco em 2 outros blocos menores
+    block_length = block_end - block_start
+    left_length = random.randint(1, block_length - 1)
+    right_length = block_length - left_length
+
+    #* escolher a posição de inserção na esquerda
+    left_shift = random.choice([-3, -2, -1])
+    insert_left_pos = max(0, block_start + left_shift) #* evitar out of bounds
+    
+    #* escolher a posição de inserção na direita
+    right_shift = random.choice([1, 2, 3])
+    insert_right_pos = min(len(seq), block_end + right_shift) #* evitar out of bounds
+
+    new_seq = (
+        seq[:insert_left_pos] +              #* Tudo até ao inicio do insert da esquerda
+        '-' * left_length +                  #* Inserimos o numero de gaps
+        seq[insert_left_pos: block_start] +  #* repomos o que vem depois do gap até ao inicio do bloco deleted
+        seq[block_end: insert_right_pos] +   #* Pulamos o bloco deleted e colocamos tudo desde o fim do deleted até à zona de inserção da direita
+        '-' * right_length +                 #* inserimos o numero de gaps
+        seq[insert_right_pos:]               #* repomos tudo o que vem depois do gap até ao fim
+    )
+    print(f"\nSequence before mutation: ${seq}")
+    print(f"New seq: ${new_seq}\n")
+    
+    mutated[seq_idx] = ''.join(new_seq)
     
     # Remover colunas só de gaps
     mutated = remove_gap_only_columns(mutated)
@@ -298,7 +284,7 @@ def run_genetic_algorithm(sequences, population_size=10, max_generations=100,
     for generation in range(1, max_generations + 1):
         print(f"--- Geração {generation} ---")
         
-        scored_population = create_next_generation(scored_population, population_size)
+        scored_population = create_next_generation(scored_population, population_size, 0.5)
         
         #* Sort por score
         scored_population.sort(key=lambda x: x[1], reverse=True)
@@ -355,7 +341,7 @@ if __name__ == "__main__":
         population_size=50,       # População maior = mais diversidade
         max_generations=100,      # Mais gerações
         no_improvement_limit=30,  # Esperar mais antes de parar
-        max_offset=30
+        max_offset=10
     )
     
     # 3. Mostrar evolução
