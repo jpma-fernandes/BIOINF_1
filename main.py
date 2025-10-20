@@ -6,8 +6,11 @@ from multiplealign.pairwisealignment import PairwiseAlignment
 import random
 import numpy as np
 import crossover as cross
+import crossover_lab as cross_l
 
 PROTEIN_TYPE = "PROTEIN"
+CROSSOVER = 'cross'
+CROSSOVER_LAB = 'lab'
 pa = None
 
 def read_fasta(filename):
@@ -143,7 +146,7 @@ def select_parents(scored_population, num_parents):
     return selected_parents
 
 
-def create_next_generation(current_population, population_size, elite_size=0.1, mutation_prob=0.5): 
+def create_next_generation(current_population, population_size, elite_size=0.1, mutation_prob=0.5, crossover=CROSSOVER_LAB): 
     #* ELITISMO: Manter os melhores
     num_elite = max(1, int(population_size * elite_size))
     next_gen = current_population[:num_elite]  # Já está ordenado
@@ -172,7 +175,10 @@ def create_next_generation(current_population, population_size, elite_size=0.1, 
             else:
                 split_point = 1
             
-            offspring1, offspring2 = cross.generate_offspring(father, mother, split_point)
+            if crossover == CROSSOVER_LAB:
+                offspring1, offspring2 = cross_l.generate_offspring(father, mother, split_point)
+            else:
+                offspring1, offspring2 = cross.generate_offspring(father, mother, split_point)
             
             # Escolher o melhor dos dois
             score1 = score_MSA(offspring1)
@@ -267,7 +273,7 @@ def mutate_split_gap_block(alignment):
 
 
 def run_genetic_algorithm(sequences, population_size=10, max_generations=100, 
-                         no_improvement_limit=20, max_offset=10):
+                         no_improvement_limit=20, max_offset=10, crossover=CROSSOVER_LAB):
 
     print("ALGORITMO GENÉTICO - MULTIPLE SEQUENCE ALIGNMENT")
     print(f"População: {population_size} | Max Gerações: {max_generations} | Limite sem melhoria: {no_improvement_limit}")
@@ -293,7 +299,7 @@ def run_genetic_algorithm(sequences, population_size=10, max_generations=100,
     for generation in range(1, max_generations + 1):
         print(f"--- Geração {generation} ---")
         
-        scored_population = create_next_generation(scored_population, population_size, 0.5)
+        scored_population = create_next_generation(scored_population, population_size, 0.5, crossover=crossover)
         
         #* Sort por score
         scored_population.sort(key=lambda x: x[1], reverse=True)
@@ -349,7 +355,9 @@ if __name__ == "__main__":
         population_size=50, 
         max_generations=100,  
         no_improvement_limit=30, 
-        max_offset=10
+        max_offset=10,
+        crossover=CROSSOVER_LAB
+
     )
     
     # 3. Mostrar evolução
