@@ -143,7 +143,7 @@ def select_parents(scored_population, num_parents):
     return selected_parents
 
 
-def create_next_generation(current_population, population_size, elite_size=0.1, mutation_prob=0.5):
+def create_next_generation(current_population, population_size, elite_size=0.1, mutation_prob=0.5): 
     #* ELITISMO: Manter os melhores
     num_elite = max(1, int(population_size * elite_size))
     next_gen = current_population[:num_elite]  # Já está ordenado
@@ -201,23 +201,35 @@ def mutate_split_gap_block(alignment):
     # Escolher tipo de mutação aleatoriamente
     
     seq_idx = random.randint(0, len(mutated) - 1)
-    seq = mutated[seq_idx]
-    
-    #* Encontrar blocos com pelo menos 2 gaps seguidos
-    gap_blocks = []
-    i = 0
-    while i < len(seq):
-        if seq[i] == '-':
-            start = i
-            while i < len(seq) and seq[i] == '-':
+    checked = 0
+
+    while checked < len(mutated):
+        seq = mutated[seq_idx]
+
+        # Encontrar blocos com pelo menos 2 gaps seguidos
+        gap_blocks = []
+        i = 0
+        while i < len(seq):
+            if seq[i] == '-':
+                start = i
+                while i < len(seq) and seq[i] == '-':
+                    i += 1
+                end = i
+                if end - start >= 2:
+                    gap_blocks.append((start, end))
+            else:
                 i += 1
-            end = i
-            if end - start >= 2:
-                gap_blocks.append((start, end))
-        else:
-            i += 1
-    
-    if not gap_blocks:
+
+        # Se encontrámos blocos, paramos aqui
+        if gap_blocks:
+            break
+
+        # Caso contrário, avançamos circularmente para a próxima sequência
+        seq_idx = (seq_idx + 1) % len(mutated)
+        checked += 1
+
+    # Se nenhuma sequência tiver blocos de gaps, devolvemos mutated
+    if checked == len(mutated):
         return mutated
     
     #* escolher bloco que vamos partir
