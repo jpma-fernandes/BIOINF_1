@@ -198,7 +198,6 @@ def mutate_split_gap_block(alignment):
     mutated = copy.deepcopy(alignment)
     
     #! Nossa operacao é  Split a randomly selected gap block
-    # Escolher tipo de mutação aleatoriamente
     
     seq_idx = random.randint(0, len(mutated) - 1)
     checked = 0
@@ -206,7 +205,7 @@ def mutate_split_gap_block(alignment):
     while checked < len(mutated):
         seq = mutated[seq_idx]
 
-        # Encontrar blocos com pelo menos 2 gaps seguidos
+        #* Encontrar blocos com pelo menos 2 gaps seguidos
         gap_blocks = []
         i = 0
         while i < len(seq):
@@ -220,15 +219,15 @@ def mutate_split_gap_block(alignment):
             else:
                 i += 1
 
-        # Se encontrámos blocos, paramos aqui
+        #* Se encontrámos blocos, paramos aqui
         if gap_blocks:
             break
 
-        # Caso contrário, avançamos circularmente para a próxima sequência
+        #* Caso contrário, avançamos circularmente para a próxima sequência
         seq_idx = (seq_idx + 1) % len(mutated)
         checked += 1
 
-    # Se nenhuma sequência tiver blocos de gaps, devolvemos mutated
+    #* Se nenhuma sequência tiver blocos de gaps, devolvemos mutated sendo igual ao pai
     if checked == len(mutated):
         return mutated
     
