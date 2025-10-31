@@ -177,6 +177,7 @@ def create_next_generation(current_population, population_size, elite_size=0.1, 
                                 break
                 else:
                     split_point = 1
+                # podiamos so ter feito assim... split_point = cross_l.index_at_residue(father[0], num_residues)    
                 offspring1, offspring2 = cross_l.generate_offspring(father, mother, split_point)
             else:
                 # crossover espera número de resíduos (índice de sequência)
