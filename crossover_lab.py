@@ -1,4 +1,5 @@
 ###cross2
+from multiplealign.myalign import MyAlign
 
 def count_residues(seq):
     return sum(1 for char in seq if char != '-')
@@ -131,3 +132,12 @@ def generate_offspring(align1, align2, crossover_point):
     offspring2 = clean_alignment(offspring2)
     
     return offspring1, offspring2
+
+if __name__ == "__main__":
+    align1 = MyAlign(["ATC-G-G-TT","A-CCGC-ATC","A-CCG--ATC"], "dna")
+    align2 = MyAlign(["ATCGG---TT","AC-CGCA-TC","A---CCGATC"], "dna")
+    of1, of2 = generate_offspring(align1, align2, 3)
+    print("Offspring 1:")
+    print(of1)
+    print("\nOffspring 2:")
+    print(of2)
